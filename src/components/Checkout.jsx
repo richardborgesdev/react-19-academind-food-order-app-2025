@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useActionState } from "react";
 import Modal from "./Modal";
 import CartContext from "../store/CartContext";
 import { currencyFormatter } from "../util/formatting";
@@ -19,13 +19,10 @@ export default function Checkout(params) {
   const cartCtx = useContext(CartContext);
   const userProgressCtx = useContext(UserProgressContext);
 
-  const {
-    data,
-    isLoading: isSending,
-    error,
-    sendRequest,
-    clearData,
-  } = useHttp("http://localhost:3000/orders", requestConfig);
+  const { data, error, sendRequest, clearData } = useHttp(
+    "http://localhost:3000/orders",
+    requestConfig
+  );
 
   function handleClose() {
     userProgressCtx.hideCheckout();
@@ -37,13 +34,10 @@ export default function Checkout(params) {
     clearData();
   }
 
-  function handleSubmit(event) {
-    event.preventDefault();
-
-    const formData = new FormData(event.target);
+  async function checkoutAction(previousState, formData) {
     const customerData = Object.fromEntries(formData.entries());
 
-    sendRequest(
+    await sendRequest(
       JSON.stringify({
         order: {
           items: cartCtx.items,
@@ -53,16 +47,18 @@ export default function Checkout(params) {
     );
   }
 
+  const [formState, formAction, pending] = useActionState(checkoutAction, null);
+
   let actions = (
     <>
       <Button textOnly type="button" onClick={handleClose}>
         Close
       </Button>
-      <Button onClick={handleSubmit}>Submit Order</Button>
+      <Button>Submit Order</Button>
     </>
   );
 
-  if (isSending) {
+  if (pending) {
     actions = <span>Sending order data ...</span>;
   }
 
@@ -87,7 +83,7 @@ export default function Checkout(params) {
 
   return (
     <Modal open={userProgressCtx.progress === "checkout"} onClose={handleClose}>
-      <form>
+      <form action={formAction}>
         <h2>Checkout</h2>
         <p>Total Amount: {currencyFormatter.format(cartCtx.totalPrice())}</p>
 
